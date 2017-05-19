@@ -4,7 +4,7 @@ import msgpack
 import inspect
 
 class Server(object):
-    def __init__(self, queue='', prefetch_count=1, prefetch_size=0, connection_global):
+    def __init__(self, queue='', prefetch_count=1, prefetch_size=0, connection_global=False):
         self.queue = queue
         self.prefetch_count = prefetch_count
         self.prefetch_size = prefetch_size
@@ -62,15 +62,24 @@ class Server(object):
 
         await self.response(None, result)
 
-    async def connect(self):
+    async def connect(self, *args, **kwargs):
+        try:
+            transport, protocol = await aioamqp.connect(*args, **kwargs)
+        except:
+            await asyncio.sleep(5)
+
         channel = await protocol.channel()
         await channel.queue_declare(queue_name=self.queue)
-        await channel.basic_qos(prefetch_count=1, prefetch_size=0, connection_global=False)
+        await channel.basic_qos(
+            prefetch_count=self.prefetch_count,
+            prefetch_size=self.prefetch_size,
+            connection_global=self.connection_global
+        )
         await channel.basic_consume(self.on_request, queue_name=self.queue)
 
-    def start(self):
+    def start(self, *args, **kwargs):
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.connect())
+        loop.run_until_complete(self.connect(*args, **kwargs))
         try:
             loop.run_forever()
         finally:

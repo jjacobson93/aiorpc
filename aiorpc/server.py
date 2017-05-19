@@ -79,12 +79,14 @@ class Server(object):
         if port is None:
             port = 5671 if ssl else 5672
 
+        protocol = None
         if retry is not False:
-            try:
-                transport, protocol = await aioamqp.connect(*args, **kwargs)
-            except:
-                logger.warn(f'Could not connect to amqp://{host}:{port}/. Trying again in {retry} second(s).')
-                await asyncio.sleep(retry)
+            while protocol is None:
+                try:
+                    transport, protocol = await aioamqp.connect(*args, **kwargs)
+                except:
+                    logger.warn(f'Could not connect to amqp://{host}:{port}/. Trying again in {retry} second(s).')
+                    await asyncio.sleep(retry)
         else:
             transport, protocol = await aioamqp.connect(*args, **kwargs)
 

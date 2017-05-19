@@ -30,7 +30,7 @@ class Client(object):
         if port is None:
             port = 5671 if ssl else 5672
 
-        logger.info(f'Connected to amqp://{host}:port/')
+        logger.info(f'Connected to amqp://{host}:{port}/')
         self._channel = await self._protocol.channel()
 
         result = await self._channel.queue_declare(queue_name='', exclusive=True)

@@ -12,9 +12,9 @@ class Client(object):
         self._queue = queue
         self._waiter = asyncio.Event()
 
-    async def _connect(self):
+    async def _connect(self, *args, **kwargs):
         """ an `__init__` method can't be a coroutine"""
-        self._transport, self._protocol = await aioamqp.connect()
+        self._transport, self._protocol = await aioamqp.connect(*args, **kwargs)
         self._channel = await self._protocol.channel()
 
         result = await self._channel.queue_declare(queue_name='', exclusive=True)

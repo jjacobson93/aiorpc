@@ -53,4 +53,7 @@ class Client(object):
         return self._response
 
     def __getattr__(self, method):
-        return lambda *args, **kargs: self(method, *args, **kargs)
+        @wraps(self.__call__)
+        async def wrapper(*args, **kwargs):
+            return await self(method, *args, **kwargs)
+        return wrapper

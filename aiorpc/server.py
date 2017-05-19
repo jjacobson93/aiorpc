@@ -1,6 +1,6 @@
 import asyncio
 import aioamqp
-import msgpack
+import umsgpack as msgpack
 import inspect
 import logging
 
@@ -44,7 +44,7 @@ class Server(object):
     async def on_request(self, channel, body, envelope, properties):
         correlation_id = properties.correlation_id
         try:
-            func_name, args, kwargs = msgpack.unpackb(body, use_list=False)
+            func_name, args, kwargs = msgpack.unpackb(body)
             logger.info(f'Received request for {func_name} ({correlation_id})')
         except err:
             logger.error(f'Could not unpack message: {err} ({correlation_id})')

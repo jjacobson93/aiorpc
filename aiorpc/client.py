@@ -1,6 +1,6 @@
 import aioamqp
 import asyncio
-import msgpack
+import umsgpack as msgpack
 import logging
 from functools import wraps
 from uuid import uuid4

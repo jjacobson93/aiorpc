@@ -10,12 +10,15 @@ logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
 class Client(object):
-    def __init__(self, queue='', timeout=None):
+    def __init__(self, queue='', host='localhost', port=None, ssl=False):
         self._transport = None
         self._protocol = None
         self._channel = None
         self._callback_queue = None
         self._queue = queue
+        self._host = host
+        self._port = port
+        self._ssl = ssl
         self._waiter = asyncio.Event()
 
     async def _connect(self, *args, **kwargs):
@@ -48,6 +51,8 @@ class Client(object):
         self._waiter.set()
 
     async def __call__(self, method, *args, **kwargs):
+        if not self._protocol:
+            await self._connect(host=self._host, port=self._port, ssl=self._ssl)
         self._response = None
         self._corr_id = str(uuid4())
 

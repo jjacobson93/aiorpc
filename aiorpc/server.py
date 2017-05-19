@@ -26,10 +26,10 @@ class Server(object):
             self.functions[func.__name__] = func
             return func
 
-    async def raise_exception(self, exception, correlation_id, routing_key):
-        self.response(str(exception), None, correlation_id, routing_key)
+    async def raise_exception(self, channel, exception, correlation_id, routing_key):
+        self.response(channel, str(exception), None, correlation_id, routing_key)
 
-    async def response(self, exception, result, correlation_id, routing_key):
+    async def response(self, channel, exception, result, correlation_id, routing_key):
         payload = msgpack.packb((exception, result))
         logger.info(f'Sending response to queue {routing_key} ({correlation_id})')
         await channel.basic_publish(
@@ -48,13 +48,13 @@ class Server(object):
             logger.info(f'Received request for {func_name} ({correlation_id})')
         except err:
             logger.error(f'Could not unpack message: {err} ({correlation_id})')
-            await self.raise_exception(err, correlation_id, properties.reply_to)
+            await self.raise_exception(channel, err, correlation_id, properties.reply_to)
             return
 
         func = self.functions.get(func_name)
         if func is None:
             logger.error(f'Function {func_name} does not exist ({correlation_id})')
-            await self.raise_exception(f'Unknown function {func_name}', correlation_id, properties.reply_to)
+            await self.raise_exception(channel, f'Unknown function {func_name}', correlation_id, properties.reply_to)
             return
 
         try:
@@ -64,9 +64,9 @@ class Server(object):
                 result = func(*args, **kwargs)
         except err:
             logger.error(f'Exception while executing {func_name}: {err} ({correlation_id})')
-            await self.raise_exception(err, correlation_id, properties.reply_to)
+            await self.raise_exception(channel, err, correlation_id, properties.reply_to)
 
-        await self.response(None, result, correlation_id, properties.reply_to)
+        await self.response(channel, None, result, correlation_id, properties.reply_to)
 
     async def connect(self, *args, **kwargs):
         retry = kwargs.get('retry', 5) # retry every X second(s)

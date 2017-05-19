@@ -8,6 +8,31 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
+class Response(object):
+    def __init__(self, channel, envelope, properties):
+        self.channel = channel
+        self.envelope = envelope
+        self.properties = properties
+
+    async def send(self, exception, result):
+        routing_key = self.properties.reply_to
+        correlation_id = self.properties.correlation_id
+        delivery_tag = self.envelope.delivery_tag
+
+        payload = msgpack.packb((str(exception) if exception is not None else None, result))
+
+        logger.info(f'Sending response to queue {routing_key} ({correlation_id})')
+        await self.channel.basic_publish(
+            payload=payload,
+            exchange_name='',
+            routing_key=routing_key,
+            properties={
+                'correlation_id': correlation_id
+            }
+        )
+
+        await self.channel.basic_client_ack(delivery_tag=delivery_tag)
+
 class Server(object):
     def __init__(self, queue='', prefetch_count=1, prefetch_size=0, connection_global=False):
         self.queue = queue
@@ -26,35 +51,21 @@ class Server(object):
             self.functions[func.__name__] = func
             return func
 
-    async def raise_exception(self, channel, exception, correlation_id, routing_key):
-        self.response(channel, str(exception), None, correlation_id, routing_key)
-
-    async def response(self, channel, exception, result, correlation_id, routing_key):
-        payload = msgpack.packb((exception, result))
-        logger.info(f'Sending response to queue {routing_key} ({correlation_id})')
-        await channel.basic_publish(
-            payload=payload,
-            exchange_name='',
-            routing_key=routing_key,
-            properties={
-                'correlation_id': correlation_id
-            }
-        )
-
     async def on_request(self, channel, body, envelope, properties):
         correlation_id = properties.correlation_id
+        response = Response(channel, envelope, properties)
         try:
             func_name, args, kwargs = msgpack.unpackb(body)
             logger.info(f'Received request for {func_name} ({correlation_id})')
         except err:
             logger.error(f'Could not unpack message: {err} ({correlation_id})')
-            await self.raise_exception(channel, err, correlation_id, properties.reply_to)
+            await response.send(err, None)
             return
 
         func = self.functions.get(func_name)
         if func is None:
             logger.error(f'Function {func_name} does not exist ({correlation_id})')
-            await self.raise_exception(channel, f'Unknown function {func_name}', correlation_id, properties.reply_to)
+            await response.send(f'Unknown function {func_name}', None)
             return
 
         try:
@@ -64,9 +75,10 @@ class Server(object):
                 result = func(*args, **kwargs)
         except err:
             logger.error(f'Exception while executing {func_name}: {err} ({correlation_id})')
-            await self.raise_exception(channel, err, correlation_id, properties.reply_to)
+            await response.send(err, None)
+            return
 
-        await self.response(channel, None, result, correlation_id, properties.reply_to)
+        await response.send(None, result)
 
     async def connect(self, *args, **kwargs):
         retry = kwargs.get('retry', 5) # retry every X second(s)

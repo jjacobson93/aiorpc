@@ -2,6 +2,7 @@ import aioamqp
 import asyncio
 import msgpack
 import logging
+from functools import wraps
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)

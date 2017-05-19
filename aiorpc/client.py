@@ -9,6 +9,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler())
 
+class RemoteException(Exception):
+    pass
+
 class Client(object):
     def __init__(self, queue='', host='localhost', port=None, ssl=False):
         self._transport = None
@@ -71,7 +74,15 @@ class Client(object):
         logger.info(f'Waiting for response on queue {self._callback_queue} ({self._corr_id})')
         await self._waiter.wait()
         await self._protocol.close()
-        return self._response
+        try:
+            exc, result = msgpack.unpackb(self._response)
+        except err:
+            logger.error(f'Could not unpack response: {err}')
+            return None
+
+        if exc is not None:
+            raise RemoteException(exc)
+        return result
 
     def __getattr__(self, method):
         @wraps(self.__call__)

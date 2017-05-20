@@ -76,7 +76,7 @@ class Client(object):
         await self._protocol.close()
         try:
             exc, result = msgpack.unpackb(self._response)
-        except err:
+        except Exception as err:
             logger.error(f'Could not unpack response: {err}')
             return None
 

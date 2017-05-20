@@ -57,7 +57,7 @@ class Server(object):
         try:
             func_name, args, kwargs = msgpack.unpackb(body)
             logger.info(f'Received request for {func_name} ({correlation_id})')
-        except err:
+        except Exception as err:
             logger.error(f'Could not unpack message: {err} ({correlation_id})')
             await response.send(err, None)
             return
@@ -73,7 +73,7 @@ class Server(object):
                 result = await func(*args, **kwargs)
             else:
                 result = func(*args, **kwargs)
-        except err:
+        except Exception as err:
             logger.error(f'Exception while executing {func_name}: {err} ({correlation_id})')
             await response.send(err, None)
             return
